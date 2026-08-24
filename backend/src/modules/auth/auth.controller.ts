@@ -1,0 +1,36 @@
+import { Request, Response } from 'express';
+import { LoginError, RegistrationError, loginUser, registerUser } from './auth.service';
+
+export async function register(req: Request, res: Response): Promise<void> {
+  try {
+    const user = await registerUser(req.body);
+
+    res.status(201).json({
+      message: 'Usuario registrado correctamente',
+      user,
+    });
+  } catch (error: unknown) {
+    if (error instanceof RegistrationError) {
+      res.status(error.statusCode).json({ message: error.message });
+      return;
+    }
+
+    console.error('Error registrando usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+}
+
+export async function login(req: Request, res: Response): Promise<void> {
+  try {
+    const user = await loginUser(req.body);
+    res.status(200).json(user);
+  } catch (error: unknown) {
+    if (error instanceof LoginError) {
+      res.status(401).json({ message: error.message });
+      return;
+    }
+
+    console.error('Error autenticando usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+}

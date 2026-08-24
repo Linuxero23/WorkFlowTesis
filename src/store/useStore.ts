@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, Role, Project, Week, Notification, Alert, Recommendation } from '../types';
-import { mockProject, mockNotifications, mockRecommendations, mockUsers } from '../data/mockData';
+import { User, Project, Week, Notification, Alert, Recommendation } from '../types';
+import { mockProject, mockNotifications, mockRecommendations } from '../data/mockData';
 
 interface AppState {
   // Autenticación
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, role: Role) => boolean;
+  login: (user: User) => void;
   logout: () => void;
   
   // Proyecto
@@ -45,26 +45,14 @@ export const useStore = create<AppState>()(
       overallProgress: 0,
       currentWeek: 1,
 
-      // Login
-      login: (email: string, role: Role) => {
-        if (!email.endsWith('@poligran.edu.co')) {
-          return false;
-        }
-        
-        const user = mockUsers.find(u => u.email === email && u.role === role);
-        if (user) {
-          set({ user, isAuthenticated: true });
-          
-          // Calcular progreso inicial
-          const progress = calculateOverallProgress(get().project.weeks);
-          const currentWeek = get().project.currentWeek;
-          set({ overallProgress: progress, currentWeek });
-          
-          // Calcular alertas
-          get().computeAlerts();
-          return true;
-        }
-        return false;
+      // Guarda el usuario autenticado por el backend.
+      login: (user: User) => {
+        set({ user, isAuthenticated: true });
+
+        const progress = calculateOverallProgress(get().project.weeks);
+        const currentWeek = get().project.currentWeek;
+        set({ overallProgress: progress, currentWeek });
+        get().computeAlerts();
       },
 
       // Logout

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Login } from '../pages/Login';
+import { Register } from '../pages/Register';
 import { DashboardStudent } from '../pages/DashboardStudent';
 import { DashboardProfessor } from '../pages/DashboardProfessor';
 import { Workflow } from '../pages/Workflow';
@@ -38,6 +39,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/register',
+    element: <Register />,
   },
   {
     path: '/',
