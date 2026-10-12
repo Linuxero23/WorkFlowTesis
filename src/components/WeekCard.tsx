@@ -9,7 +9,7 @@ interface WeekCardProps {
   onObservationChange?: (observation: string) => void;
 }
 
-export function WeekCard({ week, isCurrentWeek, onMarkComplete, onObservationChange }: WeekCardProps) {
+export function WeekCard({ week, isCurrentWeek, onMarkComplete }: WeekCardProps) {
   const getStatusIcon = () => {
     switch (week.status) {
       case 'completado':

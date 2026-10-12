@@ -1,0 +1,7 @@
+import { Request, Response } from 'express';
+import { listNotifications, markAllRead, markRead } from './notifications.service';
+import { HttpError, parsePositiveId, requestUser } from '../shared/academic';
+function handleError(res: Response, error: unknown) { const status = error instanceof HttpError ? error.statusCode : 500; if (status === 500) console.error(error); res.status(status).json({ message: error instanceof HttpError ? error.message : 'Error interno del servidor' }); }
+export async function getNotifications(req: Request, res: Response) { try { const user = requestUser(req); const id = parsePositiveId(String(req.params.userId), 'Usuario'); if (id !== user.id) throw new HttpError(403, 'No puedes consultar las notificaciones de otro usuario'); res.json(await listNotifications(id)); } catch (e) { handleError(res, e); } }
+export async function readNotification(req: Request, res: Response) { try { const user = requestUser(req); res.json(await markRead(parsePositiveId(String(req.params.id), 'Notificación'), user.id)); } catch (e) { handleError(res, e); } }
+export async function readAllNotifications(req: Request, res: Response) { try { const user = requestUser(req); const id = parsePositiveId(String(req.params.userId), 'Usuario'); if (id !== user.id) throw new HttpError(403, 'No puedes modificar las notificaciones de otro usuario'); res.json(await markAllRead(id)); } catch (e) { handleError(res, e); } }

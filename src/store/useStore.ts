@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Project, Week, Notification, Alert, Recommendation } from '../types';
-import { mockProject, mockNotifications, mockRecommendations } from '../data/mockData';
+import { mockProject, mockRecommendations } from '../data/mockData';
 
 interface AppState {
   // Autenticación
@@ -18,6 +18,11 @@ interface AppState {
   
   // Notificaciones
   notifications: Notification[];
+  notificationsLoading: boolean;
+  notificationsError: string | null;
+  replaceNotifications: (notifications: Notification[]) => void;
+  setNotificationsLoading: (loading: boolean) => void;
+  setNotificationsError: (error: string | null) => void;
   markNotificationRead: (id: string) => void;
   
   // Recomendaciones
@@ -39,25 +44,40 @@ export const useStore = create<AppState>()(
       user: null,
       isAuthenticated: false,
       project: mockProject,
-      notifications: mockNotifications,
+      notifications: [],
       recommendations: mockRecommendations,
       alerts: [],
       overallProgress: 0,
       currentWeek: 1,
+      notificationsLoading: false,
+      notificationsError: null,
 
       // Guarda el usuario autenticado por el backend.
       login: (user: User) => {
-        set({ user, isAuthenticated: true });
-
-        const progress = calculateOverallProgress(get().project.weeks);
-        const currentWeek = get().project.currentWeek;
-        set({ overallProgress: progress, currentWeek });
+        set({
+          user,
+          isAuthenticated: true,
+          notifications: [],
+          notificationsLoading: true,
+          notificationsError: null,
+          overallProgress: 0,
+          currentWeek: 1,
+        });
         get().computeAlerts();
       },
 
       // Logout
       logout: () => {
-        set({ user: null, isAuthenticated: false, alerts: [] });
+        set({
+          user: null,
+          isAuthenticated: false,
+          alerts: [],
+          notifications: [],
+          notificationsLoading: false,
+          notificationsError: null,
+          overallProgress: 0,
+          currentWeek: 1,
+        });
       },
 
       // Actualizar semana
@@ -111,6 +131,17 @@ export const useStore = create<AppState>()(
       },
 
       // Marcar notificación como leída
+      replaceNotifications: (notifications: Notification[]) => set({
+        notifications,
+        notificationsLoading: false,
+        notificationsError: null,
+      }),
+      setNotificationsLoading: (loading: boolean) => set({ notificationsLoading: loading }),
+      setNotificationsError: (error: string | null) => set({
+        notifications: error ? [] : get().notifications,
+        notificationsLoading: false,
+        notificationsError: error,
+      }),
       markNotificationRead: (id: string) => {
         const { notifications } = get();
         const updated = notifications.map(n =>
@@ -156,20 +187,23 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'polythesis-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-        project: state.project,
-        notifications: state.notifications,
       }),
+      version: 2,
+      migrate: persistedState => {
+        const persisted = persistedState as Partial<AppState>;
+        return {
+          user: persisted.user ?? null,
+          isAuthenticated: persisted.isAuthenticated ?? false,
+        };
+      },
     }
   )
 );
 
-// Helper function
 function calculateOverallProgress(weeks: Week[]): number {
   if (weeks.length === 0) return 0;
-  
-  const totalPercentage = weeks.reduce((acc, week) => acc + week.percentage, 0);
-  return Math.round(totalPercentage / weeks.length);
+  return Math.round(weeks.reduce((total, week) => total + week.percentage, 0) / weeks.length);
 }

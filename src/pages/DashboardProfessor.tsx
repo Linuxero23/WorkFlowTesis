@@ -1,158 +1,125 @@
-import { useStore } from '../store/useStore';
-import { ProgressBar } from '../components/ProgressBar';
-import { AlertCard } from '../components/AlertCard';
-import { User, FileText, AlertTriangle, Clock, ArrowRight, Send } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, ChartNoAxesCombined, ClipboardCheck, FolderKanban, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { mockStudentProgress } from '../data/mockData';
+import { useStore } from '../store/useStore';
+import { useProfessorAcademicData } from '../hooks/useProfessorAcademicData';
+import { useAcademicAccess } from '../hooks/useAcademicAccess';
+import { StudentAcademicProgress } from '../types';
+import { apiFetch } from '../utils/api';
 
 export function DashboardProfessor() {
-  const { user, notifications } = useStore();
-  
-  const students = mockStudentProgress;
-  const atRiskStudents = students.filter(s => s.alerts.length > 0);
-  const pendingDeliverables = students.filter(s => s.overallProgress < 50);
-  
-  return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">
-          ¡Bienvenido, {user?.name?.split(' ')[0]}!
-        </h1>
-        <p className="text-white/80">
-          Este es tu panel de seguimiento de estudiantes. Aquí verás el avance de tus tutorados.
-        </p>
+  const user = useStore(state => state.user);
+  const { access, loading: accessLoading } = useAcademicAccess();
+  const { projects, activities, deliveries, loading, error, secondaryErrors } = useProfessorAcademicData(user);
+  const [individualProgress, setIndividualProgress] = useState<Record<number, StudentAcademicProgress[]>>({});
+  const [progressError, setProgressError] = useState('');
+  const pendingDeliveries = deliveries.filter(item => !['APROBADA', 'RECHAZADA', 'REQUIERE_CORRECCION'].includes(item.delivery.estado_revision));
+  const pendingActivities = activities.filter(activity => !activity.bloqueada).slice(0, 6);
+
+  useEffect(() => {
+    if (!user || !projects.length) return;
+    let active = true;
+    const load = async () => {
+      const entries = await Promise.all(projects.map(async project => {
+        try {
+          const progress = await apiFetch<StudentAcademicProgress[]>(`/projects/${project.id_proyecto}/student-progress`, user);
+          return [project.id_proyecto, progress] as const;
+        } catch (loadError) {
+          if (active) setProgressError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el progreso individual');
+          return [project.id_proyecto, []] as const;
+        }
+      }));
+      if (active) setIndividualProgress(Object.fromEntries(entries));
+    };
+    void load();
+    return () => { active = false; };
+  }, [projects, user]);
+
+  const groupProgress = useMemo(() => {
+    const allStudents = Object.values(individualProgress).flat();
+    const groups = new Map<number | null, StudentAcademicProgress[]>();
+    for (const student of allStudents) {
+      const members = groups.get(student.id_grupo) || [];
+      members.push(student);
+      groups.set(student.id_grupo, members);
+    }
+    return [...groups.entries()].map(([groupId, members]) => ({
+      groupId,
+      members,
+      average: members.length
+        ? Math.round(members.reduce((sum, student) => sum + student.progreso, 0) / members.length)
+        : 0
+    }));
+  }, [individualProgress]);
+
+  if (accessLoading || loading) return <div role="status" className="animate-pulse rounded-2xl border border-border bg-white p-8 text-sm text-text-muted">Cargando resumen académico...</div>;
+
+  return <div className="page-stack">
+    <header className="page-hero">
+      <div className="page-hero-icon"><ChartNoAxesCombined className="h-6 w-6" /></div>
+      <div><p className="page-kicker">Vista de acompañamiento</p>
+        <h1 className="page-title">Dashboard del profesor</h1>
+        <p className="mt-2 max-w-2xl text-sm text-white/75">Progreso individual, actividad de tus grupos y entregas que necesitan revisión.</p>
       </div>
-      
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <User className="w-5 h-5 text-primary" />
-            </div>
-            <span className="text-sm text-text-muted">Estudiantes</span>
-          </div>
-          <p className="font-semibold text-text-primary text-2xl">{students.length}</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-error" />
-            </div>
-            <span className="text-sm text-text-muted">En Riesgo</span>
-          </div>
-          <p className="font-semibold text-error text-2xl">{atRiskStudents.length}</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <FileText className="w-5 h-5 text-warning" />
-            </div>
-            <span className="text-sm text-text-muted">Pendientes</span>
-          </div>
-          <p className="font-semibold text-warning text-2xl">{pendingDeliverables.length}</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Clock className="w-5 h-5 text-success" />
-            </div>
-            <span className="text-sm text-text-muted">Notificaciones</span>
-          </div>
-          <p className="font-semibold text-success text-2xl">{notifications.filter(n => !n.read).length}</p>
-        </div>
-      </div>
-      
-      {/* At Risk Students */}
-      {atRiskStudents.length > 0 && (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-error" />
-            Estudiantes en Riesgo
-          </h2>
-          <div className="space-y-3">
-            {atRiskStudents.map(student => (
-              <div key={student.studentId} className="flex items-center gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="w-12 h-12 rounded-full bg-red-200 flex items-center justify-center text-red-700 font-bold">
-                  {student.studentName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-text-primary">{student.studentName}</p>
-                  <p className="text-sm text-text-muted">{student.projectTitle}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-error">{student.overallProgress}%</p>
-                  <p className="text-xs text-text-muted">Semana {student.currentWeek}</p>
-                </div>
-                <button className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors">
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* All Students */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Todos los Estudiantes</h2>
-          <Link to="/students" className="text-sm text-primary hover:text-primary-dark flex items-center gap-1">
-            Ver todos <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Estudiante</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Proyecto</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Semana</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Avance</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Estado</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-text-muted">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map(student => (
-                <tr key={student.studentId} className="border-b border-border/50 hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
-                        {student.studentName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
-                      <span className="font-medium text-text-primary">{student.studentName}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-text-secondary">{student.projectTitle}</td>
-                  <td className="py-3 px-4 text-sm text-text-secondary">Semana {student.currentWeek}</td>
-                  <td className="py-3 px-4 w-48">
-                    <ProgressBar progress={student.overallProgress} size="sm" showLabel={false} />
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      student.overallProgress >= 75 ? 'bg-success/10 text-success' :
-                      student.overallProgress >= 50 ? 'bg-warning/10 text-warning' :
-                      'bg-error/10 text-error'
-                    }`}>
-                      {student.overallProgress >= 75 ? 'Bien' : student.overallProgress >= 50 ? 'Regular' : 'En riesgo'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <button className="text-primary hover:text-primary-dark text-sm font-medium">
-                      Ver detalles
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    </header>
+
+    {!access?.hasActiveGroup && <p className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-warning">Aún no tienes grupos de tutoría asignados.</p>}
+    {error && <p role="alert" className="rounded-xl border border-error/30 bg-error/5 p-4 text-sm text-error">No se pudo cargar el resumen: {error}</p>}
+    {secondaryErrors.map(message => <p key={message} role="alert" className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm text-warning">{message}</p>)}
+    {progressError && <p role="alert" className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-warning">No se pudo cargar el progreso individual: {progressError}</p>}
+
+    <div className="grid gap-4 sm:grid-cols-3">
+      <div className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><FolderKanban className="h-4 w-4 text-primary" />Proyectos asignados</div><p className="mt-3 text-4xl font-bold text-text-primary">{projects.length}</p></div>
+      <div className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><ClipboardCheck className="h-4 w-4 text-warning" />Entregas por revisar</div><p className="mt-3 text-4xl font-bold text-text-primary">{pendingDeliveries.length}</p></div>
+      <div className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><Users className="h-4 w-4 text-primary" />Estudiantes acompañados</div><p className="mt-3 text-4xl font-bold text-text-primary">{new Set(Object.values(individualProgress).flat().map(student => student.id_usuario)).size}</p></div>
     </div>
-  );
+
+    <section className="surface-card rounded-2xl border border-border bg-white p-5 sm:p-7">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+        <div><p className="page-kicker text-primary">Vista por integrante</p><h2 className="mt-1 text-xl font-semibold text-text-primary">Progreso individual y promedio del grupo</h2></div>
+        <Link to="/students" className="text-sm font-semibold text-primary">Ver estudiantes <ArrowRight className="inline h-4 w-4" /></Link>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {groupProgress.map(group => {
+          const label = projects.find(project => project.id_grupo === group.groupId)?.titulo || 'Proyecto asignado';
+          return <article key={group.groupId ?? 'sin-grupo'} className="rounded-2xl border border-border bg-slate-50/70 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">{group.groupId === null ? 'Sin grupo' : `Grupo ${group.groupId}`}</p><h3 className="mt-1 font-semibold text-text-primary">{label}</h3></div>
+              <span className="rounded-full bg-white px-3 py-1.5 text-sm font-bold text-primary shadow-sm">Promedio {group.average}%</span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {group.members.map(student => <div key={student.id_usuario} className="rounded-xl bg-white p-3">
+                <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium text-text-primary">{student.nombre} {student.apellido}</span><span className="text-sm font-semibold text-primary">{student.aprobadas}/16 · {student.progreso}%</span></div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-primary-dark to-primary transition-[width] duration-500" style={{ width: `${student.progreso}%` }} /></div>
+              </div>)}
+            </div>
+          </article>;
+        })}
+        {!groupProgress.length && !progressError && <p className="text-sm text-text-muted">No hay integrantes asociados a los proyectos.</p>}
+      </div>
+    </section>
+
+    <div className="grid gap-5 lg:grid-cols-2">
+      <section className="surface-card rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Actividades próximas</h2><Link to="/workflow" className="text-sm font-semibold text-primary">Workflow</Link></div>
+        <div className="space-y-2">
+          {pendingActivities.map(activity => <div key={activity.id_actividad} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 p-3"><div><p className="font-medium">{activity.titulo}</p><p className="text-xs text-text-muted">{activity.project.titulo} · Semana {activity.numero_semana}</p></div><span className="rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">Disponible</span></div>)}
+          {!pendingActivities.length && <p className="text-sm text-text-muted">No hay actividades grupales disponibles.</p>}
+        </div>
+      </section>
+      <section className="surface-card rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Entregas por revisar</h2><Link to="/deliverables" className="inline-flex items-center gap-1 text-sm font-semibold text-primary">Abrir entregables <ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="space-y-2">
+          {pendingDeliveries.slice(0, 6).map(item => <div key={item.delivery.id_entrega} className="rounded-xl bg-slate-50 p-3"><p className="font-medium">{item.activity.titulo}</p><p className="text-xs text-text-muted">{item.project.titulo} · {item.delivery.estudiante_nombre || 'Estudiante'} · {new Date(item.delivery.fecha_entrega).toLocaleDateString()}</p></div>)}
+          {!pendingDeliveries.length && <p className="text-sm text-text-muted">No hay entregas pendientes de revisión.</p>}
+        </div>
+      </section>
+    </div>
+
+    <nav className="flex flex-wrap gap-3">
+      <Link to="/students" className="action-button rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white">Estudiantes</Link>
+      <Link to="/deliverables" className="action-button rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold">Revisar entregables</Link>
+      <Link to="/workflow" className="action-button rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold">Gestionar workflow</Link>
+    </nav>
+  </div>;
 }

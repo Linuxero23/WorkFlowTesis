@@ -1,4 +1,5 @@
-import { GraduationCap, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface AuthLayoutProps {
   title: string;
@@ -14,11 +15,13 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
         <div className="absolute -right-16 top-16 h-64 w-64 rounded-full border border-white/10" />
         <div className="absolute bottom-24 left-1/3 h-24 w-24 rounded-full border border-primary-light/30" />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-primary-dark shadow-lg">
-            <GraduationCap className="h-6 w-6" aria-hidden="true" />
+        <div className="relative z-10 inline-flex w-fit max-w-full items-center gap-4 rounded-2xl border border-white/70 bg-white/95 px-4 py-3 shadow-[0_12px_32px_rgba(4,31,50,0.2)] ring-1 ring-white/50 backdrop-blur-sm sm:gap-5 sm:px-5 sm:py-3.5">
+          <BrandLogo variant="dark" className="!max-h-16 max-w-40 shrink-0 sm:!max-h-[4.5rem] sm:max-w-44" />
+          <span className="h-12 w-px shrink-0 bg-gradient-to-b from-transparent via-slate-300 to-transparent sm:h-14" aria-hidden="true" />
+          <div className="max-w-28 sm:max-w-32">
+            <p className="text-[0.62rem] font-bold uppercase leading-4 tracking-[0.16em] text-primary sm:text-[0.68rem]">PoliThesis</p>
+            <p className="mt-1 text-[0.65rem] leading-4 text-slate-500 sm:text-xs">Seguimiento académico</p>
           </div>
-          <span className="text-xl font-bold tracking-tight">PolyThesis</span>
         </div>
 
         <div className="relative z-10 max-w-xl pb-14">
@@ -37,17 +40,15 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
       <section className="flex min-h-screen flex-col justify-center px-4 py-8 sm:px-8 lg:px-12 xl:px-20">
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-              <GraduationCap className="h-5 w-5" aria-hidden="true" />
-            </div>
+            <BrandLogo className="max-w-40" />
             <div>
-              <p className="font-bold text-primary-dark">PolyThesis</p>
+              <p className="font-bold text-primary-dark">PoliThesis</p>
               <p className="text-xs text-text-muted">Seguimiento de trabajos de grado</p>
             </div>
           </div>
 
           <div className="mb-8">
-            <p className="mb-3 text-sm font-semibold text-primary">PolyThesis</p>
+            <p className="mb-3 text-sm font-semibold text-primary">PoliThesis</p>
             <h2 className="text-3xl font-bold tracking-tight text-text-primary">{title}</h2>
             <p className="mt-3 text-sm leading-6 text-text-secondary">{description}</p>
           </div>

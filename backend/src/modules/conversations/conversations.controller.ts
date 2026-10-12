@@ -1,0 +1,11 @@
+import { Request, Response } from 'express';
+import { HttpError, parsePositiveId, requireRole, requestUser } from '../shared/academic';
+import { getConversationMessages, getOrCreateDirect, groupConversation, listUserConversations, markConversationRead, sendConversationMessage } from './conversations.service';
+
+function handleError(res: Response, error: unknown) { const status = error instanceof HttpError ? error.statusCode : 500; if (status === 500) console.error(error); res.status(status).json({ message: error instanceof HttpError ? error.message : 'Error interno del servidor' }); }
+export async function getConversations(req: Request, res: Response) { try { const user = requestUser(req); if (user.id !== parsePositiveId(String(req.params.userId), 'Usuario')) throw new HttpError(403, 'No puedes consultar conversaciones ajenas'); res.json(await listUserConversations(user.id)); } catch (error) { handleError(res, error); } }
+export async function getMessages(req: Request, res: Response) { try { const user = requestUser(req); res.json(await getConversationMessages(parsePositiveId(String(req.params.conversationId), 'Conversación'), user.id)); } catch (error) { handleError(res, error); } }
+export async function postMessage(req: Request, res: Response) { try { const user = requestUser(req); res.status(201).json(await sendConversationMessage(parsePositiveId(String(req.params.conversationId), 'Conversación'), user.id, req.body.mensaje, req.file ? `/uploads/chat/${req.file.filename}` : undefined)); } catch (error) { handleError(res, error); } }
+export async function directConversation(req: Request, res: Response) { try { const user = requestUser(req); const otherId = parsePositiveId(String(req.body.id_usuario), 'Usuario'); res.json(await getOrCreateDirect(user.id, otherId)); } catch (error) { handleError(res, error); } }
+export async function groupConversationById(req: Request, res: Response) { try { const user = requestUser(req); res.json(await groupConversation(parsePositiveId(String(req.params.groupId), 'Grupo'), user.id)); } catch (error) { handleError(res, error); } }
+export async function readConversation(req: Request, res: Response) { try { const user = requestUser(req); res.json(await markConversationRead(parsePositiveId(String(req.params.id), 'Conversación'), user.id)); } catch (error) { handleError(res, error); } }

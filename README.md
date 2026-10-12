@@ -1,196 +1,158 @@
-# PolyThesis - Sistema de Seguimiento de Trabajos de Grado
+# PoliThesis
 
-![PolyThesis](https://img.shields.io/badge/PolyThesis-v1.0.0-blue)
-![React](https://img.shields.io/badge/React-18-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Tailwind](https://img.shields.io/badge/Tailwind-3-blue)
+PoliThesis (también referido como SynThesis en el proyecto) es una plataforma académica para coordinar y acompañar trabajos de grado durante un flujo de 16 semanas. Centraliza grupos, tutorías, entregas, revisiones, progreso individual, notificaciones y conversaciones en una aplicación web conectada a SQL Server.
 
-Plataforma web para el seguimiento de trabajos de grado/tesis para estudiantes y docentes del Politécnico Grancolombiano. Permite gestionar el avance de 16 semanas, con alertas inteligentes y recomendaciones automáticas.
+## Tecnologías y arquitectura
 
-## 📋 Descripción
+- **Frontend:** React 18, TypeScript, Vite, React Router, Zustand, Tailwind CSS y Lucide.
+- **Backend:** Node.js, Express 5 y TypeScript.
+- **Persistencia:** Microsoft SQL Server mediante `mssql`.
+- **Autenticación:** JWT firmado por el backend y contraseñas con bcrypt.
+- **Archivos:** almacenamiento local en `backend/uploads`, servido únicamente mediante endpoints autenticados.
 
-PolyThesis es un prototipo funcional que simula una plataforma institucional de seguimiento de proyectos de grado. El sistema permite:
+El navegador consume `/api`; las reglas de roles y acceso a proyectos, grupos, conversaciones y archivos se vuelven a validar en el servidor. SQL Server es la fuente de verdad de los datos académicos. El almacenamiento Zustand conserva la sesión necesaria para el cliente, no sustituye la persistencia académica.
 
-- **Para Estudiantes:** Visualizar el avance de su proyecto, seguir el workflow de 16 semanas, marcar entregables como completados, recibir alertas de atraso y obtener recomendaciones personalizadas.
+## Roles
 
-- **Para Profesores:** Supervisar múltiples estudiantes, ver el avance individual, recibir alertas de estudiantes en riesgo, y enviar retroalimentación.
+- **Coordinador:** consulta directorios, administra profesores y estudiantes, y crea/edita grupos, integrantes y tutor asignado. Al crear un grupo se crean o asocian su proyecto académico y las 16 actividades.
+- **Profesor:** consulta sus proyectos y estudiantes asignados, administra la disponibilidad grupal de actividades, revisa entregas y usa notificaciones y chat autorizado.
+- **Estudiante:** accede a su progreso y entregas individuales, archivos, calificaciones y retroalimentación, además de las notificaciones y conversaciones en las que participa. Sin grupo activo, las rutas académicas quedan limitadas.
+- **Administrador:** rol privilegiado de backend para operaciones administrativas; no se asigna desde el registro público.
 
-- **Para Coordinadores:** Vista general de todos los proyectos y estudiantes.
+El registro público admite únicamente estudiantes y profesores con correo institucional. La asignación de roles coordinador/administrador se realiza mediante un proceso administrativo controlado.
 
-## 🛠️ Tecnologías Usadas
+## Funcionalidades principales
 
-| Tecnología | Propósito |
-|------------|-----------|
-| React 18 | Framework principal |
-| Vite | Build tool y servidor de desarrollo |
-| TypeScript | Tipado estático |
-| Tailwind CSS | Estilos y diseño responsivo |
-| React Router | Navegación entre páginas |
-| Zustand | Gestión de estado global |
-| Lucide React | Iconos |
-| Recharts | Gráficas (opcional) |
-| LocalStorage | Persistencia de datos |
+- Dashboard diferenciado por rol.
+- Gestión de grupos, estudiantes, profesores y tutor asignado.
+- Workflow de 16 semanas por proyecto; disponibilidad de entrega compartida y progreso/revisión individual por estudiante.
+- Entregas con archivos privados, descarga autenticada, revisión, calificación y retroalimentación.
+- Notificaciones persistidas y chat directo/grupal con control de participantes.
+- Cierre de sesión por 10 minutos de inactividad en el cliente.
 
-## 🚀 Cómo Instalar
+El progreso se calcula a partir de las entregas aprobadas de cada estudiante; aprobar a una persona no completa la semana para el resto del grupo. El módulo **Recomendaciones** es opcional y no forma parte de la fuente de verdad académica. La administración independiente de proyectos (fuera del flujo de creación de grupos) y las integraciones SSO, LMS, correo/push y exportación de reportes no están incluidas.
 
-```bash
-# Clonar el repositorio o copiar los archivos
-cd polythesis
+## Requisitos
 
-# Instalar dependencias
-npm install
+- Node.js compatible con los paquetes del proyecto (recomendado Node.js 20 LTS o posterior).
+- SQL Server accesible desde el backend.
+- Una base de datos vacía o existente compatible con las migraciones. Haz un respaldo antes de aplicar cambios sobre una base con datos.
+
+## Configuración de SQL Server
+
+1. Crea/selecciona la base de datos y configura los valores en `backend/.env`.
+2. Ejecuta los scripts completos, en este orden, desde SSMS o una herramienta compatible:
+   1. `backend/sql/000_core_schema.sql`
+   2. `backend/sql/001_academic_flow.sql`
+   3. `backend/sql/002_coordinator_groups.sql`
+   4. `backend/sql/003_group_management_and_chat.sql`
+   5. `backend/sql/004_academic_workflow.sql`
+   6. `backend/sql/005_delivery_grade_compat.sql`
+3. `backend/sql/006_historial_activity_types.sql` es una migración adicional para instalaciones donde exista `CK_Historial_Tipo`; revisa primero sus instrucciones y ejecútala manualmente. No se ejecuta al arrancar la aplicación.
+
+Las migraciones 000–005 son aditivas y están preparadas para repetirse cuando el esquema ya es compatible. No eliminan tablas ni datos. Detén el proceso si una migración informa incompatibilidad o ambigüedad y resuélvela sobre una copia de seguridad; no recrees tablas para eludir el error. Consulta [backend/sql/README.md](./backend/sql/README.md) para detalles.
+
+## Variables de entorno
+
+### Frontend (`.env`)
+
+Copia `.env.example` a `.env`:
+
+| Variable | Uso |
+|---|---|
+| `VITE_API_URL` | URL base del API, por defecto `http://localhost:3000/api`. |
+
+### Backend (`backend/.env`)
+
+Copia `backend/.env.example` a `backend/.env` y completa los valores locales:
+
+| Variable | Uso |
+|---|---|
+| `PORT` | Puerto HTTP del backend (por defecto 3000). |
+| `CORS_ORIGINS` | Lista separada por comas de orígenes frontend autorizados. Obligatoria en producción. |
+| `JWT_SECRET` | Secreto local aleatorio de al menos 32 caracteres; nunca lo publiques. |
+| `JWT_EXPIRES_IN_SECONDS` | Duración máxima del JWT; el ejemplo usa 8 horas. |
+| `DB_SERVER`, `DB_PORT`, `DB_DATABASE` | Dirección, puerto y base de SQL Server. |
+| `DB_USER`, `DB_PASSWORD` | Credenciales de SQL Server con permisos mínimos necesarios. |
+| `DB_ENCRYPT` | Habilita cifrado de la conexión SQL (en producción debe ser `true`). |
+| `DB_TRUST_SERVER_CERTIFICATE` | Confianza del certificado SQL; en producción debe ser `false`. |
+
+Genera el secreto localmente sin incluirlo en el repositorio:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
-## ▶️ Cómo Ejecutar
+No hay contraseñas de demostración publicadas ni cuentas iniciales garantizadas en una instalación limpia. Crea cuentas desde el registro y asigna roles privilegiados mediante el procedimiento administrativo autorizado. Nunca guardes contraseñas en README, scripts, commits o capturas.
 
-```bash
-# Iniciar el servidor de desarrollo
+## Instalación y ejecución
+
+Desde la raíz, instala y arranca el frontend:
+
+```powershell
+npm install
 npm run dev
 ```
 
-El proyecto se abrirá en `http://localhost:5173`
+En otra terminal, instala y arranca el backend:
 
-## 👤 Cuentas de Demo
-
-| Rol | Correo | Contraseraseña |
-|-----|--------|-----------------|
-| Estudiante | `juan.perez@poligran.edu.co` | cualquier cosa |
-| Profesor | `maria.lopez@poligran.edu.co` | cualquier cosa |
-| Coordinador | `roberto.castro@poligran.edu.co` | cualquier cosa |
-
-**Nota:** La contraseña no se valida. Solo el correo debe terminar en `@poligran.edu.co`.
-
-## 📅 Flujo de 16 Semanas
-
-| Semana | Título | Descripción |
-|--------|--------|-------------|
-| 1 | Inicio y Formalización | Inicio, formalización, asignación, lluvia de ideas |
-| 2 | Anteproyecto Parte 1 | Título, alcance, contexto del problema |
-| 3 | Anteproyecto Parte 2 | Justificación, objetivo general, objetivos específicos |
-| 4 | Anteproyecto Parte 3 | Bibliografía, cronograma, entregables, formato completo |
-| 5 | Marco Teórico | Desarrollo del marco teórico |
-| 6 | Requerimientos Parte 1 | Análisis de requerimientos funcionales |
-| 7 | Requerimientos Parte 2 | Análisis de requerimientos no funcionales |
-| 8 | Diseño de Solución | Mockups y arquitectura |
-| 9 | Desarrollo Propuesta Tecnológica | Actualización del diseño |
-| 10 | Arquitectura de Software | Arquitectura de software, datos y comunicaciones |
-| 11 | Documentación Arquitectura | Documentación completa |
-| 12 | Documentación Pruebas | Documentación de pruebas |
-| 13 | Ejecución de Pruebas | Ejecución de pruebas del sistema |
-| 14 | Documentación de Pruebas | Resultados de pruebas |
-| 15 | Conclusión del Proyecto | Conclusiones y recomendaciones |
-| 16 | Informe Final y Retrospectiva | Informe final completo |
-
-## ⚠️ Alertas Inteligentes
-
-El sistema genera alertas automáticamente según las siguientes reglas:
-
-- **Alerta Amarilla:** Si el avance general está por debajo del 25% después de la semana 4.
-- **Alerta Roja:** Si el avance general está por debajo del 50% después de la semana 8.
-- **Semana Atrasada:** Si una semana anterior no está completada, se marca como atrasada.
-- **Mensaje:** "Debes contactar a tu tutor para revisar el avance."
-
-## 💡 Recomendaciones Automáticas
-
-El sistema muestra recomendaciones según el estado del proyecto:
-
-- Si está atrasado: "Prioriza los entregables de la semana actual y agenda reunión con tu tutor."
-- Si falta bibliografía: "Agrega fuentes académicas en formato APA o IEEE."
-- Si falta metodología: "Define fases, herramientas, pruebas y validación."
-- Si está cerca de semana 16: "Revisa conclusiones, informe final y retrospectiva."
-
-## 🎨 Diseño
-
-El diseño sigue la identidad visual del Politécnico Grancolombiano:
-
-- **Colores:**
-  - Azul oscuro institucional: `#003B5C`
-  - Azul principal: `#005DAA`
-  - Blanco: `#FFFFFF`
-  - Gris claro: `#F4F6F8`
-  - Verde (completado): `#22C55E`
-  - Amarillo (alerta): `#F59E0B`
-  - Rojo (atraso): `#EF4444`
-
-- **Componentes:**
-  - Sidebar azul oscuro
-  - Cards limpias con sombras suaves
-  - Barra de progreso visual
-  - Estados con colores diferenciados
-  - Diseño responsivo
-
-## 🔧 Funcionalidades Implementadas
-
-### Estudiante
-- [x] Login con validación de email institucional
-- [x] Dashboard con información del proyecto
-- [x] Barra de progreso visual
-- [x] Workflow de 16 semanas
-- [x] Marcar entregables como completados
-- [x] Sistema de alertas
-- [x] Recomendaciones automáticas
-- [x] Vista de notificaciones
-
-### Profesor
-- [x] Dashboard con lista de estudiantes
-- [x] Ver avance individual
-- [x] Ver alertas de atraso
-- [x] Enviar retroalimentación
-- [x] Panel de notificaciones
-
-## 📝 Lo que Se Implementaría en Producción
-
-- **Backend:** API REST con Node.js/Express o NestJS
-- **Base de Datos:** PostgreSQL o MongoDB
-- **Autenticación:** Microsoft Azure AD o Google Workspace
-- **Notificaciones:** Correo electrónico, push notifications
-- **Integración:** Conexión con LMS (Canvas, Moodle)
-- **Reportes:** Exportar a PDF/Excel
-- **Validaciones:** Formularios con validación robusta
-- **Seguridad:** JWT, HTTPS, protección CSRF
-
-## 📁 Estructura del Proyecto
-
+```powershell
+cd backend
+npm install
+npm run dev
 ```
+
+El frontend queda disponible normalmente en `http://localhost:5173`; el API en `http://localhost:3000`. La comprobación de salud pública es `GET /api/health`; el resto de endpoints requiere JWT.
+
+Para validar o iniciar en producción:
+
+```powershell
+# Desde la raíz
+npm run build
+npm run preview
+
+# Desde backend
+npm run build
+npm start
+```
+
+## Seguridad y sesión
+
+- JWT firmado/verificado por el servidor; el ID y el rol autenticados no se aceptan desde headers de identidad del cliente.
+- Contraseñas con bcrypt; el registro público rechaza roles privilegiados.
+- CORS restringido a `CORS_ORIGINS`; SQL parametrizado y controles de acceso por recurso.
+- Archivos privados: descarga por endpoints autenticados, con autorización y validación de ruta; no se publica `uploads`.
+- Las rutas privadas requieren token vigente. El frontend cierra la sesión tras 10 minutos sin actividad; el token tiene además la expiración configurada por `JWT_EXPIRES_IN_SECONDS`.
+
+## Estructura principal
+
+```text
 src/
-├── app/
-│   ├── App.tsx
-│   └── router.tsx
-├── components/
-│   ├── Layout.tsx
-│   ├── Sidebar.tsx
-│   ├── Navbar.tsx
-│   ├── ProgressBar.tsx
-│   ├── AlertCard.tsx
-│   ├── WeekCard.tsx
-│   ├── RoleBadge.tsx
-│   └── RecommendationCard.tsx
-├── data/
-│   └── mockData.ts
-├── pages/
-│   ├── Login.tsx
-│   ├── DashboardStudent.tsx
-│   ├── DashboardProfessor.tsx
-│   ├── Workflow.tsx
-│   ├── Deliverables.tsx
-│   ├── Notifications.tsx
-│   ├── Recommendations.tsx
-│   └── Students.tsx
-├── types/
-│   └── index.ts
-├── utils/
-│   ├── progress.ts
-│   └── alerts.ts
-├── store/
-│   └── useStore.ts
-├── index.css
-└── main.tsx
+  app/             rutas y arranque React
+  components/      layout, navegación y componentes académicos
+  hooks/           acceso y carga de datos académicos
+  pages/           pantallas por rol y funcionalidad
+  store/           estado de sesión/cliente
+  utils/           cliente API y notificaciones
+backend/
+  src/config/      entorno y conexión SQL Server
+  src/modules/     auth, usuarios, grupos, proyectos, actividades,
+                   entregas, archivos, notificaciones, chat y feedback
+  sql/             migraciones ordenadas
+  uploads/         archivos privados gestionados por el backend
 ```
 
-## 📄 Licencia
+## Comprobaciones de desarrollo
 
-Este proyecto es un prototipo educativo. Todos los derechos reservados al Politécnico Grancolombiano.
+```powershell
+# Raíz
+npm run build
+cd backend
+npm run build
+```
 
----
+El script `npm run lint` está declarado, pero ESLint 9 requiere un archivo
+`eslint.config.js` que aún no está incluido; no se considera una validación
+disponible hasta configurar ese archivo.
 
-**Desarrollado con ❤️ para facilitar el seguimiento de trabajos de grado**
+Las funciones de correo/push, SSO institucional, LMS, reportes y administración independiente de proyectos requieren trabajo adicional antes de considerarlas parte de una entrega productiva.

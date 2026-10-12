@@ -9,6 +9,12 @@ import { Deliverables } from '../pages/Deliverables';
 import { Notifications } from '../pages/Notifications';
 import { Recommendations } from '../pages/Recommendations';
 import { Students } from '../pages/Students';
+import { CoordinatorDashboard } from '../pages/CoordinatorDashboard';
+import { CoordinatorStudents } from '../pages/CoordinatorStudents';
+import { CoordinatorProfessors } from '../pages/CoordinatorProfessors';
+import { CoordinatorGroups } from '../pages/CoordinatorGroups';
+import { ChatPage } from '../pages/ChatPage';
+import { useAcademicAccess } from '../hooks/useAcademicAccess';
 import { useStore } from '../store/useStore';
 
 // Componente para proteger rutas
@@ -16,7 +22,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useStore(state => state.isAuthenticated);
   const user = useStore(state => state.user);
   
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !user?.token) {
     return <Navigate to="/login" replace />;
   }
   
@@ -30,8 +36,36 @@ function Dashboard() {
   if (user?.role === 'estudiante') {
     return <DashboardStudent />;
   }
+
+  if (user?.role === 'coordinador' || user?.role === 'administrador') {
+    return <CoordinatorDashboard />;
+  }
   
   return <DashboardProfessor />;
+}
+
+function StudentsRoute() {
+  const user = useStore(state => state.user);
+  if (user?.role === 'coordinador' || user?.role === 'administrador') return <CoordinatorStudents />;
+  if (user?.role === 'profesor') return <Students />;
+  return <Navigate to="/dashboard" replace />;
+}
+
+function CoordinatorRoute({ children }: { children: React.ReactNode }) {
+  const user = useStore(state => state.user);
+  if (user?.role !== 'coordinador' && user?.role !== 'administrador') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function AcademicRoute({ children }: { children: React.ReactNode }) {
+  const { access, loading } = useAcademicAccess();
+  if (loading) return <div className="p-8 text-sm text-text-muted">Verificando acceso académico...</div>;
+  return access?.hasActiveGroup ? <>{children}</> : <Navigate to="/dashboard" replace />;
+}
+
+function UnknownRoute() {
+  const isAuthenticated = useStore(state => state.isAuthenticated);
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
 }
 
 // Router
@@ -68,7 +102,7 @@ export const router = createBrowserRouter([
         path: 'workflow',
         element: (
           <ProtectedRoute>
-            <Workflow />
+            <AcademicRoute><Workflow /></AcademicRoute>
           </ProtectedRoute>
         ),
       },
@@ -76,7 +110,7 @@ export const router = createBrowserRouter([
         path: 'deliverables',
         element: (
           <ProtectedRoute>
-            <Deliverables />
+            <AcademicRoute><Deliverables /></AcademicRoute>
           </ProtectedRoute>
         ),
       },
@@ -92,7 +126,15 @@ export const router = createBrowserRouter([
         path: 'recommendations',
         element: (
           <ProtectedRoute>
-            <Recommendations />
+            <AcademicRoute><Recommendations /></AcademicRoute>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'chat',
+        element: (
+          <ProtectedRoute>
+            <AcademicRoute><ChatPage /></AcademicRoute>
           </ProtectedRoute>
         ),
       },
@@ -100,15 +142,23 @@ export const router = createBrowserRouter([
         path: 'students',
         element: (
           <ProtectedRoute>
-            <Students />
+            <StudentsRoute />
           </ProtectedRoute>
         ),
       },
       {
-        path: 'projects',
+        path: 'professors',
         element: (
           <ProtectedRoute>
-            <DashboardProfessor />
+            <CoordinatorRoute><CoordinatorProfessors /></CoordinatorRoute>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'groups',
+        element: (
+          <ProtectedRoute>
+            <CoordinatorRoute><CoordinatorGroups /></CoordinatorRoute>
           </ProtectedRoute>
         ),
       },
@@ -116,6 +166,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to="/login" replace />,
+    element: <UnknownRoute />,
   },
 ]);

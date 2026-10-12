@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { LoginError, RegistrationError, loginUser, registerUser } from './auth.service';
+import { createAccessToken } from './authentication';
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
@@ -22,8 +23,9 @@ export async function register(req: Request, res: Response): Promise<void> {
 
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    const user = await loginUser(req.body);
-    res.status(200).json(user);
+    const authenticatedUser = await loginUser(req.body);
+    const token = createAccessToken({ id: authenticatedUser.id_usuario, role: authenticatedUser.rol });
+    res.status(200).json({ user: authenticatedUser, token });
   } catch (error: unknown) {
     if (error instanceof LoginError) {
       res.status(401).json({ message: error.message });

@@ -1,178 +1,97 @@
-import { useStore } from '../store/useStore';
-import { ProgressBar } from '../components/ProgressBar';
-import { AlertCard } from '../components/AlertCard';
-import { RecommendationCard } from '../components/RecommendationCard';
-import { Calendar, Clock, User, FileText, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, CheckCircle2, Clock3, FileUp, Lock, MessageSquareText, Target } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { mockUsers } from '../data/mockData';
+import { useStore } from '../store/useStore';
+import { AcademicProject, StudentAcademicProgress } from '../types';
+import { apiFetch } from '../utils/api';
+import { useAcademicAccess } from '../hooks/useAcademicAccess';
 
 export function DashboardStudent() {
-  const { user, project, overallProgress, alerts, recommendations } = useStore();
-  
-  const tutor = mockUsers.find(u => u.id === project.tutorId);
-  
-  // Obtener próximas tareas (próximas 2 semanas)
-  const upcomingWeeks = project.weeks
-    .filter(w => w.id >= project.currentWeek && w.id <= project.currentWeek + 2)
-    .slice(0, 3);
-  
-  return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">
-          ¡Bienvenido, {user?.name?.split(' ')[0]}!
-        </h1>
-        <p className="text-white/80">
-          Este es tu panel de seguimiento de tesis. Aquí verás tu progreso y las tareas pendientes.
-        </p>
+  const user = useStore(state => state.user);
+  const { access, loading } = useAcademicAccess();
+  const [project, setProject] = useState<AcademicProject | null>(null);
+  const [progress, setProgress] = useState<StudentAcademicProgress | null>(null);
+  const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!user || !access?.hasActiveGroup) return;
+      try {
+        const current = await apiFetch<AcademicProject>(`/projects/student/${user.id}`, user);
+        const individual = await apiFetch<StudentAcademicProgress[]>(`/projects/${current.id_proyecto}/student-progress`, user);
+        if (!active) return;
+        setProject(current);
+        setProgress(individual.find(student => student.id_usuario === Number(user.id)) || null);
+        setError('');
+      } catch (loadError) {
+        if (active) setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el resumen académico');
+      } finally {
+        if (active) setLoaded(true);
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => void load(), 15000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [user, access?.hasActiveGroup]);
+
+  if (loading) return <div role="status" className="animate-pulse rounded-2xl border border-border bg-white p-8 text-sm text-text-muted">Verificando asignación de grupo...</div>;
+  if (!access?.hasActiveGroup) return <div className="page-stack">
+    <header className="page-hero"><div className="page-hero-icon"><Lock className="h-6 w-6" /></div><div><p className="page-kicker">Acompañamiento académico</p><h1 className="page-title">Esperando asignación de grupo</h1><p className="mt-2 text-sm text-white/75">Tu coordinador aún no te ha asignado a un grupo activo.</p></div></header>
+    <div className="surface-card flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white p-8 text-center"><Lock className="h-10 w-10 text-primary/50" /><h2 className="mt-4 text-lg font-semibold text-text-primary">Herramientas académicas pendientes</h2><p className="mt-2 max-w-md text-sm text-text-secondary">Workflow, entregas, notificaciones y chat estarán disponibles cuando pertenezcas a un grupo de trabajo activo.</p></div>
+  </div>;
+  if (!loaded) return <div role="status" className="animate-pulse rounded-2xl border border-border bg-white p-8 text-sm text-text-muted">Cargando tu progreso individual...</div>;
+
+  const completed = progress?.aprobadas || 0;
+  const weekly = progress?.semanas || [];
+  const correction = weekly.find(week => week.estado_entrega === 'REQUIERE_CORRECCION');
+  const lastFeedback = progress?.ultima_retroalimentacion;
+  const daysUntilDue = progress?.proxima_actividad?.fecha_limite
+    ? Math.ceil((new Date(progress.proxima_actividad.fecha_limite).getTime() - Date.now()) / 86400000)
+    : null;
+
+  return <div className="page-stack">
+    <header className="page-hero">
+      <div className="page-hero-icon"><Target className="h-6 w-6" /></div>
+      <div><p className="page-kicker">Mi seguimiento individual</p>
+        <h1 className="page-title">{project?.titulo || 'Dashboard académico'}</h1>
+        <p className="mt-2 max-w-2xl text-sm text-white/80">Has completado {completed} de 16 semanas. Tu avance se calcula a partir de tus propias entregas aprobadas.</p>
       </div>
-      
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-            <span className="text-sm text-text-muted">Proyecto</span>
-          </div>
-          <p className="font-semibold text-text-primary line-clamp-2">{project.title}</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <User className="w-5 h-5 text-purple-600" />
-            </div>
-            <span className="text-sm text-text-muted">Tutor</span>
-          </div>
-          <p className="font-semibold text-text-primary">{tutor?.name || 'No asignado'}</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <Calendar className="w-5 h-5 text-warning" />
-            </div>
-            <span className="text-sm text-text-muted">Semana Actual</span>
-          </div>
-          <p className="font-semibold text-text-primary">Semana {project.currentWeek} de 16</p>
-        </div>
-        
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-border">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Clock className="w-5 h-5 text-success" />
-            </div>
-            <span className="text-sm text-text-muted">Estado</span>
-          </div>
-          <p className="font-semibold text-success">En Progreso</p>
-        </div>
+    </header>
+    {error && <p role="alert" className="rounded-xl border border-error/30 bg-error/5 p-4 text-sm text-error">No se pudo actualizar el resumen: {error}</p>}
+    {!progress && !error && <p role="alert" className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-warning">No se encontró tu seguimiento individual.</p>}
+
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <article className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><CheckCircle2 className="h-4 w-4 text-success" />Progreso aprobado</div><p className="mt-3 text-4xl font-bold text-text-primary">{progress?.progreso || 0}%</p><p className="mt-1 text-xs text-text-muted">{completed} de 16 semanas</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-primary-dark to-primary transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${progress?.progreso || 0}%` }} /></div></article>
+      <article className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><Clock3 className="h-4 w-4 text-warning" />Próxima actividad</div><p className="mt-3 text-lg font-bold text-text-primary">{correction ? `Corrección · Semana ${correction.numero_semana}` : progress?.proxima_actividad ? `Semana ${progress.proxima_actividad.numero_semana}` : 'Sin pendientes'}</p><p className="mt-1 line-clamp-2 text-sm text-text-muted">{correction?.titulo || progress?.proxima_actividad?.titulo || 'No tienes actividades pendientes disponibles.'}</p></article>
+      <article className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><FileUp className="h-4 w-4 text-primary" />Fecha de entrega</div><p className="mt-3 text-lg font-bold text-text-primary">{progress?.proxima_actividad?.fecha_limite ? new Date(progress.proxima_actividad.fecha_limite).toLocaleDateString() : 'Por definir'}</p><p className="mt-1 text-sm text-text-muted">{daysUntilDue === null ? 'Consulta las fechas en Workflow' : daysUntilDue < 0 ? `${Math.abs(daysUntilDue)} días vencida` : `${daysUntilDue} días restantes`}</p></article>
+      <article className="metric-card rounded-2xl border border-border bg-white p-5"><div className="flex items-center gap-2 text-sm text-text-muted"><MessageSquareText className="h-4 w-4 text-primary" />Último feedback</div><p className="mt-3 line-clamp-3 text-sm font-medium text-text-primary">{lastFeedback?.texto || 'Aún no hay retroalimentación registrada.'}</p>{lastFeedback && <p className="mt-2 text-xs text-text-muted">Semana {lastFeedback.numero_semana} · {new Date(lastFeedback.fecha).toLocaleDateString()}</p>}</article>
+    </section>
+
+    <section className="surface-card rounded-2xl border border-border bg-white p-5 sm:p-7">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2"><div><p className="page-kicker text-primary">Tu ruta de grado</p><h2 className="mt-1 text-xl font-semibold text-text-primary">Avance de las 16 semanas</h2></div><Link to="/workflow" className="inline-flex items-center gap-1 text-sm font-semibold text-primary">Abrir workflow <ArrowRight className="h-4 w-4" /></Link></div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {weekly.map(week => {
+          const status = week.aprobada ? 'Aprobada · Hecho' :
+            week.estado_entrega === 'REQUIERE_CORRECCION' ? 'Corrección solicitada' :
+            week.estado_entrega === 'RECHAZADA' ? 'Rechazada' :
+            week.estado_entrega === 'EN_REVISION' ? 'En revisión' :
+            week.estado_entrega ? 'Enviada' : week.bloqueada ? 'No entregado · Bloqueada' : 'Disponible';
+          return <article key={week.id_actividad} className="metric-card rounded-xl border border-border bg-slate-50/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Semana {week.numero_semana}</p>
+            <p className="mt-2 line-clamp-2 text-sm font-semibold text-text-primary">{week.titulo}</p>
+            <p className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${week.aprobada ? 'bg-success/10 text-success' : week.estado_entrega === 'REQUIERE_CORRECCION' ? 'bg-warning/10 text-warning' : 'bg-white text-text-secondary'}`}>
+              {week.aprobada ? <CheckCircle2 className="h-3.5 w-3.5" /> : week.estado_entrega === 'EN_REVISION' ? <Clock3 className="h-3.5 w-3.5" /> : null}{status}
+            </p>
+            {week.calificacion !== null && <p className="mt-2 text-xs text-text-muted">Nota: {week.calificacion}/5</p>}
+          </article>;
+        })}
       </div>
-      
-      {/* Progress Section */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Progreso General</h2>
-        <ProgressBar progress={overallProgress} size="lg" />
-      </div>
-      
-      {/* Alerts Section */}
-      {alerts.length > 0 && (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Alertas</h2>
-          <div className="space-y-3">
-            {alerts.map(alert => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Tasks */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Próximas Tareas</h2>
-            <Link to="/workflow" className="text-sm text-primary hover:text-primary-dark flex items-center gap-1">
-              Ver todas <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {upcomingWeeks.map(week => (
-              <div key={week.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {week.id}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-text-primary">{week.title}</p>
-                  <p className="text-sm text-text-muted">{week.deliverables.length} entregables</p>
-                </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  week.status === 'en_progreso' ? 'bg-primary/10 text-primary' :
-                  week.status === 'completado' ? 'bg-success/10 text-success' :
-                  'bg-gray-200 text-gray-600'
-                }`}>
-                  {week.percentage}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Recommendations */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-text-primary">Recomendaciones</h2>
-            <Link to="/recommendations" className="text-sm text-primary hover:text-primary-dark flex items-center gap-1">
-              Ver todas <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {recommendations.slice(0, 3).map(rec => (
-              <RecommendationCard key={rec.id} recommendation={rec} />
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-border">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Acciones Rápidas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link
-            to="/workflow"
-            className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <FileText className="w-8 h-8 text-primary" />
-            <div>
-              <p className="font-medium text-text-primary">Ver Workflow</p>
-              <p className="text-sm text-text-muted">16 semanas</p>
-            </div>
-          </Link>
-          <Link
-            to="/deliverables"
-            className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <Calendar className="w-8 h-8 text-primary" />
-            <div>
-              <p className="font-medium text-text-primary">Entregables</p>
-              <p className="text-sm text-text-muted">Ver pendientes</p>
-            </div>
-          </Link>
-          <Link
-            to="/notifications"
-            className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <Clock className="w-8 h-8 text-primary" />
-            <div>
-              <p className="font-medium text-text-primary">Notificaciones</p>
-              <p className="text-sm text-text-muted">Ver mensajes</p>
-            </div>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+    </section>
+    <nav className="flex flex-wrap gap-3">
+      <Link to="/deliverables" className="action-button inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white"><FileUp className="h-4 w-4" />Mis entregables</Link>
+      <Link to="/workflow" className="action-button rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-text-primary">Abrir workflow</Link>
+    </nav>
+  </div>;
 }

@@ -76,7 +76,7 @@ export function Recommendations() {
   const categories = [
     { id: 'urgente', label: 'Urgente', color: 'text-error', bg: 'bg-red-50' },
     { id: 'bibliografia', label: 'Bibliografía', color: 'text-info', bg: 'bg-blue-50' },
-    { id: 'metodologia', label: 'Metodología', color: 'text-purple-600', bg: 'bg-purple-50' },
+    { id: 'metodologia', label: 'Metodología', color: 'text-navy', bg: 'bg-slate-100' },
     { id: 'final', label: 'Final', color: 'text-success', bg: 'bg-green-50' },
   ];
   

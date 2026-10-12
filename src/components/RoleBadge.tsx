@@ -11,11 +11,15 @@ const roleConfig = {
   },
   profesor: {
     label: 'Profesor',
-    bgColor: 'bg-purple-600',
+    bgColor: 'bg-navy',
   },
   coordinador: {
     label: 'Coordinador',
     bgColor: 'bg-emerald-600',
+  },
+  administrador: {
+    label: 'Administrador',
+    bgColor: 'bg-slate-700',
   },
 };
 

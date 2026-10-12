@@ -3,13 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 import { Role } from '../types';
+import { API_URL } from '../utils/api';
 
-type PublicRole = Extract<Role, 'estudiante' | 'profesor' | 'coordinador'>;
+type PublicRole = Extract<Role, 'estudiante' | 'profesor'>;
 
 const roles: { value: PublicRole; label: string; apiValue: string }[] = [
   { value: 'estudiante', label: 'Estudiante', apiValue: 'ESTUDIANTE' },
   { value: 'profesor', label: 'Profesor', apiValue: 'PROFESOR' },
-  { value: 'coordinador', label: 'Coordinador', apiValue: 'COORDINADOR' },
 ];
 
 export function Register() {
@@ -44,7 +44,7 @@ export function Register() {
 
     try {
       const selectedRole = roles.find(role => role.value === form.rol);
-      const response = await fetch('http://localhost:3000/api/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +122,7 @@ export function Register() {
 
         <fieldset>
           <legend className="mb-2 block text-sm font-semibold text-text-primary">Rol</legend>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {roles.map(role => (
               <button key={role.value} type="button" onClick={() => updateField('rol', role.value)} aria-pressed={form.rol === role.value} className={`rounded-xl border px-2 py-3 text-sm font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-primary/20 ${form.rol === role.value ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-slate-50 text-text-secondary hover:border-primary/40 hover:bg-primary/5'}`}>
                 {role.label}

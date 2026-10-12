@@ -16,16 +16,18 @@ export function Navbar() {
     if (path === '/notifications') return 'Notificaciones';
     if (path === '/recommendations') return 'Recomendaciones';
     if (path === '/students') return 'Mis Estudiantes';
+    if (path === '/professors') return 'Profesores';
+    if (path === '/groups') return 'Grupos';
     if (path === '/projects') return 'Proyectos';
-    return 'PolyThesis';
+    return 'PoliThesis';
   };
   
   const unreadCount = notifications.filter(n => !n.read).length;
   
   return (
-    <header className="h-16 bg-white border-b border-border flex items-center justify-between px-6">
-      <div className="flex items-center gap-2 text-sm text-text-muted">
-        <span>PolyThesis</span>
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 bg-white/90 px-3 pl-14 shadow-[0_4px_16px_rgba(15,39,64,0.035)] backdrop-blur-xl sm:px-6 sm:pl-16 md:pl-6">
+      <div className="flex min-w-0 items-center gap-2 truncate text-sm text-text-muted">
+        <span>PoliThesis</span>
         <ChevronRight className="w-4 h-4" />
         <span className="font-medium text-text-primary">{getPageTitle()}</span>
       </div>
@@ -34,9 +36,10 @@ export function Navbar() {
         {/* Notifications */}
         <Link 
           to="/notifications"
-          className="relative p-2 text-text-secondary hover:text-primary transition-colors"
+          aria-label={`Notificaciones${unreadCount ? `, ${unreadCount} sin leer` : ''}`}
+          className="action-button relative shrink-0 p-2 text-text-secondary hover:text-primary"
         >
-          <Bell className="w-5 h-5" />
+          <Bell key={unreadCount} className={`h-5 w-5 ${unreadCount ? 'notification-pulse' : ''}`} />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-4 h-4 bg-error text-white text-xs rounded-full flex items-center justify-center">
               {unreadCount}

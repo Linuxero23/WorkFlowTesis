@@ -390,6 +390,7 @@ export const getProjectByStudentId = (studentId: string): Project | undefined =>
 };
 
 export const getStudentsByTutorId = (tutorId: string) => {
+  void tutorId;
   return mockStudentProgress.filter(sp => {
     const student = mockUsers.find(u => u.id === sp.studentId);
     return student?.role === 'estudiante';

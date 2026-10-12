@@ -4,6 +4,7 @@ import { AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 import { useStore } from '../store/useStore';
 import { Role, User } from '../types';
+import { API_URL } from '../utils/api';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo: email, password }),
@@ -33,12 +34,13 @@ export function Login() {
         return;
       }
 
-      const role = data.rol?.toString().toLowerCase() as Role;
+      const role = data.user?.rol?.toString().toLowerCase() as Role;
       const user: User = {
-        id: String(data.id_usuario),
-        name: `${data.nombre} ${data.apellido}`.trim(),
-        email: data.correo,
+        id: String(data.user.id_usuario),
+        name: `${data.user.nombre} ${data.user.apellido}`.trim(),
+        email: data.user.correo,
         role,
+        token: data.token,
       };
 
       login(user);

@@ -1,10 +1,8 @@
 import bcrypt from 'bcrypt';
 import { connectDatabase } from '../../config/database';
 
-export const PUBLIC_ROLES = ['ESTUDIANTE', 'PROFESOR', 'COORDINADOR'] as const;
-export const ALLOWED_ROLES = [...PUBLIC_ROLES, 'ADMINISTRADOR'] as const;
-
-export type UserRole = (typeof ALLOWED_ROLES)[number];
+export const PUBLIC_ROLES = ['ESTUDIANTE', 'PROFESOR'] as const;
+export type UserRole = (typeof PUBLIC_ROLES)[number];
 
 export interface RegisterInput {
   nombre: string;
@@ -49,25 +47,29 @@ function isValidInstitutionalEmail(email: string): boolean {
 }
 
 export async function registerUser(input: RegisterInput | undefined): Promise<RegisteredUser> {
-  const nombre = input?.nombre?.trim();
-  const apellido = input?.apellido?.trim();
-  const correo = input?.correo?.trim().toLowerCase();
-  const rol = input?.rol?.trim().toUpperCase();
+  const nombre = typeof input?.nombre === 'string' ? input.nombre.trim() : '';
+  const apellido = typeof input?.apellido === 'string' ? input.apellido.trim() : '';
+  const correo = typeof input?.correo === 'string' ? input.correo.trim().toLowerCase() : '';
+  const password = typeof input?.password === 'string' ? input.password : '';
+  const rol = typeof input?.rol === 'string' ? input.rol.trim().toUpperCase() : '';
 
-  if (!nombre || !apellido || !correo || !input?.password || !rol) {
+  if (!nombre || !apellido || !correo || !password || !rol) {
     throw new RegistrationError(400, 'Todos los campos son obligatorios');
   }
 
   if (!isValidInstitutionalEmail(correo)) {
     throw new RegistrationError(400, 'El correo debe terminar en @poligran.edu.co');
   }
-
-  if (!ALLOWED_ROLES.includes(rol as UserRole)) {
-    throw new RegistrationError(400, 'El rol seleccionado no es válido');
+  if (nombre.length > 100 || apellido.length > 100 || correo.length > 254) {
+    throw new RegistrationError(400, 'Nombre, apellido o correo excede la longitud permitida');
   }
 
-  if (input.password.length < 8) {
-    throw new RegistrationError(400, 'La contraseña debe tener mínimo 8 caracteres');
+  if (!PUBLIC_ROLES.includes(rol as UserRole)) {
+    throw new RegistrationError(400, 'El registro público solo permite los roles estudiante o profesor');
+  }
+
+  if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
+    throw new RegistrationError(400, 'La contraseña debe tener entre 8 y 72 bytes');
   }
 
   const pool = await connectDatabase();
@@ -80,7 +82,7 @@ export async function registerUser(input: RegisterInput | undefined): Promise<Re
     throw new RegistrationError(409, 'El correo ya está registrado');
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(password, 12);
 
   try {
     const result = await pool
@@ -116,9 +118,10 @@ export class LoginError extends Error {
 }
 
 export async function loginUser(input: LoginInput | undefined): Promise<AuthenticatedUser> {
-  const correo = input?.correo?.trim().toLowerCase();
+  const correo = typeof input?.correo === 'string' ? input.correo.trim().toLowerCase() : '';
+  const password = typeof input?.password === 'string' ? input.password : '';
 
-  if (!correo || !input?.password) {
+  if (!isValidInstitutionalEmail(correo) || !password || Buffer.byteLength(password, 'utf8') > 72) {
     throw new LoginError();
   }
 
@@ -137,11 +140,11 @@ export async function loginUser(input: LoginInput | undefined): Promise<Authenti
     nombre: string;
     apellido: string;
     correo: string;
-    password_hash: string;
+    password_hash: string | null;
     rol: string;
   } | undefined;
 
-  if (!databaseUser || !(await bcrypt.compare(input.password, databaseUser.password_hash))) {
+  if (!databaseUser?.password_hash || !(await bcrypt.compare(password, databaseUser.password_hash))) {
     throw new LoginError();
   }
 
